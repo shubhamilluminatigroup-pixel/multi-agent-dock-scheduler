@@ -1,0 +1,47 @@
+{
+  "truck_connection": {
+    "connection_id": "CONN-TRUCK-01",
+    "name": "Truck Fleet & Carrier DB Connection",
+    "bound_agent": "TruckDataAgent",
+    "connector_type": "SQLITE_DB",
+    "connection_link": "sqlite:///C:/Users/2427727/.gemini/antigravity/scratch/multi_agent_dock_scheduler/data/truck_db.sqlite",
+    "db_table_or_endpoint": "trucks",
+    "auth_mode": "NONE",
+    "api_key_or_token": "",
+    "sync_mode": "LIVE_QUERY",
+    "status": "CONNECTED",
+    "last_tested": "2026-10-21 20:39:23",
+    "last_sync_records": 8,
+    "last_message": "Connected to local SQLite truck_db.sqlite (8 trucks)."
+  },
+  "schedule_connection": {
+    "connection_id": "CONN-SCHED-02",
+    "name": "Warehouse Dock & Schedule DB Connection",
+    "bound_agent": "ScheduleDataAgent",
+    "connector_type": "SQLITE_DB",
+    "connection_link": "sqlite:///C:/Users/2427727/.gemini/antigravity/scratch/multi_agent_dock_scheduler/data/schedule_db.sqlite",
+    "db_table_or_endpoint": "schedule_records, docks",
+    "auth_mode": "NONE",
+    "api_key_or_token": "",
+    "sync_mode": "LIVE_QUERY",
+    "status": "CONNECTED",
+    "last_tested": "2026-10-21 20:39:23",
+    "last_sync_records": 12,
+    "last_message": "Connected to local SQLite schedule_db.sqlite (2 docks, 12 slots)."
+  },
+  "eta_connection": {
+    "connection_id": "CONN-ETA-03",
+    "name": "Live GPS / ETA Telematics Stream Connection",
+    "bound_agent": "ETAFinderAgent",
+    "connector_type": "INTERNAL_TRUCK_DB",
+    "connection_link": "http://127.0.0.1:8050/api/external-mock/telematics-eta",
+    "db_table_or_endpoint": "/api/external-mock/telematics-eta",
+    "auth_mode": "API_KEY_HEADER",
+    "api_key_or_token": "telematics-demo-token-2026",
+    "sync_mode": "HYBRID_OVERRIDE",
+    "status": "CONNECTED",
+    "last_tested": "2026-10-21 20:39:23",
+    "last_sync_records": 8,
+    "last_message": "Linked to Truck DB Telemetry + External Telematics Feed."
+  }
+}

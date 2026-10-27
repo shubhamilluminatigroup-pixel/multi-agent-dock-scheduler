@@ -1,0 +1,17 @@
+# Python bytecode & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Browser automation temporary profile
+data/chrome_ppt_profile/
+
+# Duplicate static PPTX copies (root PPTX and docs/screenshots are tracked)
+static/*.pptx
+
+# OS files
+.DS_Store
+Thumbs.db

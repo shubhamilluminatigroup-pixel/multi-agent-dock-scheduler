@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autonomous ETA Dock &amp; Slot Scheduler — Multi-Agent Control Tower</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css?v=8" />
+</head>
+<body>
+  <!-- EXECUTIVE TOP NAVIGATION BAR -->
+  <header class="top-header">
+    <div class="brand-cluster">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="3" width="15" height="13" rx="2"></rect>
+          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+          <circle cx="5.5" cy="18.5" r="2.5"></circle>
+          <circle cx="18.5" cy="18.5" r="2.5"></circle>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-meta-row">
+          <span class="brand-badge">MULTI-AGENT AI CONTROL TOWER</span>
+          <span class="status-live-pill"><span class="status-dot"></span> 2 Docks Active (<code>DOCK-A</code> &bull; <code>DOCK-B</code>)</span>
+        </div>
+        <h1>Autonomous ETA Dock &amp; Appointment Scheduler</h1>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="scenario-segmented" id="headerScenarioGroup" role="group" aria-label="Simulation Scenarios">
+        <span class="scenario-label">Scenario:</span>
+        <button type="button" id="scen-full" class="seg-btn active" onclick="loadScenario('SCENARIO_FULL_MULTI_AGENT', this)">
+          Full Mix
+        </button>
+        <button type="button" id="scen-slot" class="seg-btn" onclick="loadScenario('SCENARIO_SLOT_SWAP', this)">
+          Slot Swap
+        </button>
+        <button type="button" id="scen-dock" class="seg-btn" onclick="loadScenario('SCENARIO_DOCK_SWAP', this)">
+          Dock Swap (A&harr;B)
+        </button>
+      </div>
+
+      <button type="button" class="btn btn-ghost btn-sm" onclick="resetDatabases()" title="Reset both SQLite databases to default synthetic state">
+        &#8635; Reset DBs
+      </button>
+      <button type="button" id="runAgentsBtn" class="btn btn-approve btn-sm" onclick="executeMultiAgentPipeline()">
+        &#10003; Approve All (<span id="pendingCountBadge">0</span>)
+      </button>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- KPI METRICS RIBBON + 5-AGENT PIPELINE STEPPER -->
+    <section class="overview-grid" aria-label="System KPIs and 5-Agent Architecture">
+      <div class="kpi-ribbon">
+        <div class="kpi-card">
+          <div class="kpi-label">Active Fleet (`truck_db.sqlite`)</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpiTotalTrucks">8</span>
+            <span class="kpi-tag">2 Docks / 12 Slots</span>
+          </div>
+        </div>
+        <div class="kpi-card kpi-warn">
+          <div class="kpi-label">Live ETA Conflicts</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpiConflicts">0</span>
+            <span class="kpi-tag">Early / Delayed / Unbooked</span>
+          </div>
+        </div>
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-label">Pending Agent Proposals</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpiProposals">0</span>
+            <span class="kpi-tag">Awaiting Approval</span>
+          </div>
+        </div>
+        <div class="kpi-card kpi-success">
+          <div class="kpi-label">Scheduler Dispatches</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpiDispatches">0</span>
+            <span class="kpi-tag">Committed to DBs</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPACT 5-AGENT PIPELINE STEPPER -->
+      <div class="agent-pipeline-section" aria-label="5-Agent Pipeline Status">
+        <div class="agent-card" id="agent-card-1">
+          <div class="agent-card-top">
+            <span class="agent-num">01</span>
+            <span class="agent-title">TruckDataAgent</span>
+            <span class="agent-db-pill">truck_db</span>
+          </div>
+          <p class="agent-desc" id="agent-log-1">Loads fleet schedules &amp; live telemetry.</p>
+        </div>
+        <div class="agent-card" id="agent-card-2">
+          <div class="agent-card-top">
+            <span class="agent-num">02</span>
+            <span class="agent-title">ScheduleDataAgent</span>
+            <span class="agent-db-pill">schedule_db</span>
+          </div>
+          <p class="agent-desc" id="agent-log-2">Loads Dock A &amp; Dock B slot availability.</p>
+        </div>
+        <div class="agent-card" id="agent-card-3">
+          <div class="agent-card-top">
+            <span class="agent-num">03</span>
+            <span class="agent-title">ETAFinderAgent</span>
+            <span class="agent-db-pill">Variance</span>
+          </div>
+          <p class="agent-desc" id="agent-log-3">Detects early, delayed &amp; unbooked arrivals.</p>
+        </div>
+        <div class="agent-card" id="agent-card-4">
+          <div class="agent-card-top">
+            <span class="agent-num">04</span>
+            <span class="agent-title">SlotCheckingAgent</span>
+            <span class="agent-db-pill">Optimizer</span>
+          </div>
+          <p class="agent-desc" id="agent-log-4">Computes Slot Swaps, Dock Swaps &amp; Bookings.</p>
+        </div>
+        <div class="agent-card" id="agent-card-5">
+          <div class="agent-card-top">
+            <span class="agent-num">05</span>
+            <span class="agent-title">ExecutionCommAgent</span>
+            <span class="agent-db-pill">Commit &amp; Notify</span>
+          </div>
+          <p class="agent-desc" id="agent-log-5">Updates both DBs &amp; notifies Scheduler.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- NAVIGATION TABS (Non-overlapping views using anchor-positioning-tab-underline) -->
+    <nav class="tabs-bar" aria-label="Workspace Views">
+      <ul class="view-tabs" role="tablist">
+        <li id="tab-li-gantt" class="active" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            id="tab-btn-gantt"
+            aria-selected="true"
+            aria-controls="tabpanel-gantt"
+            class="tab-btn"
+            onclick="switchViewTab('gantt')"
+          >
+            &#128202; Gantt Schedule Board (Existing vs. Proposed Schedule)
+          </button>
+        </li>
+        <li id="tab-li-ops" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            id="tab-btn-ops"
+            aria-selected="false"
+            aria-controls="tabpanel-ops"
+            class="tab-btn"
+            onclick="switchViewTab('ops')"
+          >
+            &#128667; Truck ETA Simulator, Proposal Approvals &amp; Logs (<span id="opsTabPendingCount">0</span>)
+          </button>
+        </li>
+        <li id="tab-li-connections" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            id="tab-btn-connections"
+            aria-selected="false"
+            aria-controls="tabpanel-connections"
+            class="tab-btn"
+            onclick="switchViewTab('connections')"
+          >
+            &#128268; DB &amp; External System Connections (<span id="activeConnCountBadge">3 Active</span>)
+          </button>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- TAB PANEL 1: DEDICATED 2-DOCK GANTT CHART VIEW (EXISTING VS NEW PROPOSED SCHEDULE) -->
+    <section
+      id="tabpanel-gantt"
+      role="tabpanel"
+      aria-labelledby="tab-btn-gantt"
+      class="panel"
+    >
+      <div class="panel-header">
+        <div>
+          <span class="panel-eyebrow">SYNCHRONIZED 24-HOUR SCROLLABLE GANTT CHART (00:00 &ndash; 24:00) &bull; 30 / 45 / 60 MIN APPOINTMENTS</span>
+          <h2>Dock-A &amp; Dock-B 24h Timeline: Existing Schedule vs. New ETA-Proposed Schedule</h2>
+        </div>
+        <div class="header-cta-group">
+          <div class="legend-pills">
+            <span class="badge badge-ok"><span class="dot dot-ok"></span> On-Time (30/45/60m)</span>
+            <span class="badge badge-overlap-red"><span class="dot dot-overlap-red"></span> Overlapping ETA (Red Alert)</span>
+            <span class="badge badge-warn"><span class="dot dot-warn"></span> ETA Variance</span>
+            <span class="badge badge-swap"><span class="dot dot-swap"></span> Proposed Swap</span>
+            <span class="badge badge-new"><span class="dot dot-new"></span> New Booking</span>
+            <span class="badge badge-rescheduled"><span class="dot dot-commit"></span> Approved</span>
+            <span class="badge badge-eta-pin">&#9830; Live ETA Pin</span>
+          </div>
+          <button type="button" class="btn btn-approve btn-sm" onclick="executeMultiAgentPipeline()">
+            &#10003; Approve All on Gantt
+          </button>
+        </div>
+      </div>
+
+      <!-- 24-Hour Horizontal Scroll Controls & Duration / Overlap Summary Bar -->
+      <div class="gantt-scroll-toolbar" aria-label="24-hour timeline navigation controls">
+        <div class="gantt-scroll-info">
+          <span class="scroll-hint-badge">&#8596; 24h Horizontal Scroll (00:00 &ndash; 24:00)</span>
+          <span class="duration-sample-pills">
+            Sample Durations:
+            <code>30 min</code> (TRK-103, TRK-107, TRK-108) &bull;
+            <code>45 min</code> (TRK-102, TRK-104, TRK-106) &bull;
+            <code>60 min</code> (TRK-101, TRK-105)
+          </span>
+        </div>
+        <div class="gantt-scroll-btn-group">
+          <button type="button" class="btn btn-secondary btn-xs" onclick="scrollGanttToHour(0)">00:00</button>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="scrollGanttToHour(6)">06:00</button>
+          <button type="button" class="btn btn-primary btn-xs" onclick="scrollGanttToHour(7.5)">&#9733; Active Window (08:00&ndash;14:00)</button>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="scrollGanttToHour(14)">14:00</button>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="scrollGanttToHour(18)">18:00</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="scrollGanttByDelta(-420)" title="Scroll Left 3 Hours">&larr; 3h</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="scrollGanttByDelta(420)" title="Scroll Right 3 Hours">3h &rarr;</button>
+        </div>
+      </div>
+
+      <!-- Dual-Track Dock Gantt Chart Container -->
+      <div id="dockGanttContainer" class="gantt-wrapper"></div>
+    </section>
+
+    <!-- TAB PANEL 2: TRUCK ETA SIMULATOR, PROPOSAL APPROVAL QUEUE & SCHEDULER LOGS -->
+    <section
+      id="tabpanel-ops"
+      role="tabpanel"
+      aria-labelledby="tab-btn-ops"
+      class="tab-panel-stack"
+      hidden
+    >
+      <!-- PROPOSAL APPROVAL QUEUE & SCHEDULER COMMUNICATION LOG -->
+      <div class="comparison-grid">
+        <div class="panel panel-highlight">
+          <div class="panel-header">
+            <div>
+              <span class="panel-eyebrow">AGENT 4 &rarr; 5 DECISION WORKFLOW</span>
+              <h2>Pending Slot &amp; Dock Swap Proposals</h2>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <span id="proposalCountLabel" class="badge badge-swap">0 Proposals</span>
+              <button type="button" class="btn btn-approve btn-xs" onclick="executeMultiAgentPipeline()">
+                &#10003; Approve All
+              </button>
+            </div>
+          </div>
+          <p class="panel-helper">
+            Approve individual slot/dock swaps or new bookings to commit them to <code>schedule_db.sqlite</code> and <code>truck_db.sqlite</code>, or reject to lock the original slot.
+          </p>
+          <div id="proposalsList" class="feed-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <span class="panel-eyebrow">AGENT 5 AUDIT LOG: <code>ExecutionCommAgent</code></span>
+              <h2>Master Scheduler &amp; Driver Dispatch Feed</h2>
+            </div>
+            <span id="commCountLabel" class="badge badge-ok">0 Dispatches</span>
+          </div>
+          <p class="panel-helper">
+            Real-time communication dispatches sent to the Master Scheduler and Truck Drivers upon proposal approval or rejection.
+          </p>
+          <div id="communicationsList" class="feed-list"></div>
+        </div>
+      </div>
+
+      <!-- TRUCK DB TABLE + INLINE ETA MODIFICATION & APPROVAL CONTROLS -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <span class="panel-eyebrow">DATABASE 2: <code>truck_db.sqlite</code> &bull; LIVE TELEMETRY &amp; ETA TESTING</span>
+            <h2>Truck Fleet Schedule, Live ETA Simulator &amp; Row-Level Approval</h2>
+          </div>
+          <div class="auto-exec-toggle">
+            <label class="toggle-label">
+              <input type="checkbox" id="autoExecuteToggle" />
+              <span>Auto-Approve &amp; Commit immediately when ETA is modified</span>
+            </label>
+          </div>
+        </div>
+
+        <div tabindex="0" role="region" aria-labelledby="truck-table-caption" class="table-wrapper">
+          <table class="truck-table">
+            <caption id="truck-table-caption" class="sr-only">
+              Truck fleet schedules, live telemetry ETAs, agent-proposed slot/dock assignments with approval buttons, and interactive ETA modification controls
+            </caption>
+            <thead>
+              <tr>
+                <th>Truck &amp; Carrier</th>
+                <th>Cargo Spec</th>
+                <th>Baseline Slot</th>
+                <th>Current Committed Slot</th>
+                <th>Live ETA &amp; Variance</th>
+                <th>Proposed Action &amp; Approval</th>
+                <th>Modify ETA (Test Controls)</th>
+              </tr>
+            </thead>
+            <tbody id="truckTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB PANEL 3: DB & EXTERNAL SYSTEM CONNECTIONS HUB (TRUCK DB, SCHEDULE DB, LIVE ETA TELEMATICS) -->
+    <section
+      id="tabpanel-connections"
+      role="tabpanel"
+      aria-labelledby="tab-btn-connections"
+      class="tab-panel-stack"
+      hidden
+    >
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <span class="panel-eyebrow">AGENT DATA CONNECTOR HUB &bull; EXTERNAL DB &amp; API INTEGRATION</span>
+            <h2>Database &amp; External System Connection Links (Truck, Schedule &amp; ETA)</h2>
+          </div>
+          <div class="header-cta-group">
+            <button type="button" class="btn btn-outline btn-sm" onclick="resetConnectionsToDefaults()">
+              &#8635; Restore Default SQLite Links
+            </button>
+          </div>
+        </div>
+        <p class="panel-helper">
+          Configure external database URIs (SQLite, PostgreSQL/MySQL) or REST API endpoints for each data domain. Each agent (<code>TruckDataAgent</code>, <code>ScheduleDataAgent</code>, and <code>ETAFinderAgent</code>) dynamically binds to its configured connection link to fetch and synchronize live data.
+        </p>
+
+        <div class="connectors-grid">
+          <!-- CONNECTOR 1: TRUCK DB & TMS CONNECTION (TruckDataAgent) -->
+          <form class="connector-card" id="form-truck_connection" onsubmit="saveConnectionConfig(event, 'truck_connection')">
+            <div class="connector-card-header">
+              <div>
+                <span class="connector-agent-tag">Bound to Agent 01: <code>TruckDataAgent</code></span>
+                <h3>1. Truck Fleet &amp; Carrier DB Connection</h3>
+              </div>
+              <span id="status-badge-truck_connection" class="badge badge-ok">CONNECTED</span>
+            </div>
+
+            <div class="preset-links-row">
+              <span class="preset-label">Quick Link Presets:</span>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('truck_connection', 'SQLITE_DEFAULT')">
+                Local truck_db.sqlite
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('truck_connection', 'SQLITE_EXTERNAL')">
+                External TMS SQLite DB
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('truck_connection', 'REST_MOCK')">
+                External TMS REST API
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('truck_connection', 'POSTGRES_URI')">
+                PostgreSQL URI
+              </button>
+            </div>
+
+            <div class="form-row">
+              <label for="type-truck_connection">Connector Protocol</label>
+              <select id="type-truck_connection" name="connector_type">
+                <option value="SQLITE_DB">SQLite Database File / URI (sqlite:///...)</option>
+                <option value="REST_API">External TMS REST API Endpoint (http/https JSON)</option>
+                <option value="SQL_URI">External Enterprise SQL Database URI (PostgreSQL / MySQL)</option>
+              </select>
+            </div>
+
+            <div class="form-row field">
+              <label for="link-truck_connection">Truck DB / API Connection Link</label>
+              <!-- MANDATORY: Place format hints above the input so autocomplete popovers don't cover them during editing -->
+              <span id="hint-truck_connection" class="hint">Format: sqlite:///data/truck_db.sqlite, http://..., or postgresql://host:5432/db</span>
+              <input
+                type="text"
+                id="link-truck_connection"
+                name="connection_link"
+                required
+                pattern="^(sqlite:///|http://|https://|postgresql://|postgres://|mysql://|mssql://|data/).+"
+                aria-describedby="hint-truck_connection"
+                aria-errormessage="err-truck_connection"
+              />
+              <div id="err-truck_connection" class="error-msg">
+                <span aria-hidden="true">&#10060;</span> Enter a valid URI starting with <code>sqlite:///</code>, <code>http(s)://</code>, or <code>postgresql://</code>.
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-row">
+                <label for="table-truck_connection">Table / Resource Path</label>
+                <input type="text" id="table-truck_connection" value="trucks" />
+              </div>
+              <div class="form-row">
+                <label for="token-truck_connection">API Key / DB Auth Token (Optional)</label>
+                <input type="password" id="token-truck_connection" placeholder="Bearer / API key..." autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="connector-status-box" id="diag-truck_connection">
+              Connected to local SQLite truck_db.sqlite.
+            </div>
+
+            <div class="connector-actions">
+              <button type="button" class="btn btn-outline btn-xs" onclick="testConnectionConfig('truck_connection')">
+                &#9889; Test Link
+              </button>
+              <button type="submit" class="btn btn-primary btn-xs">
+                &#128190; Save &amp; Bind to Agent
+              </button>
+              <button type="button" class="btn btn-approve btn-xs" onclick="syncAgentViaLink('truck_connection')">
+                &#8635; Pull Truck Data Now
+              </button>
+            </div>
+          </form>
+
+          <!-- CONNECTOR 2: SCHEDULE & DOCK DB CONNECTION (ScheduleDataAgent) -->
+          <form class="connector-card" id="form-schedule_connection" onsubmit="saveConnectionConfig(event, 'schedule_connection')">
+            <div class="connector-card-header">
+              <div>
+                <span class="connector-agent-tag">Bound to Agent 02: <code>ScheduleDataAgent</code></span>
+                <h3>2. Dock &amp; Master Schedule DB Connection</h3>
+              </div>
+              <span id="status-badge-schedule_connection" class="badge badge-ok">CONNECTED</span>
+            </div>
+
+            <div class="preset-links-row">
+              <span class="preset-label">Quick Link Presets:</span>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('schedule_connection', 'SQLITE_DEFAULT')">
+                Local schedule_db.sqlite
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('schedule_connection', 'SQLITE_EXTERNAL')">
+                External WMS SQLite DB
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('schedule_connection', 'REST_MOCK')">
+                External WMS REST API
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('schedule_connection', 'POSTGRES_URI')">
+                PostgreSQL URI
+              </button>
+            </div>
+
+            <div class="form-row">
+              <label for="type-schedule_connection">Connector Protocol</label>
+              <select id="type-schedule_connection" name="connector_type">
+                <option value="SQLITE_DB">SQLite Database File / URI (sqlite:///...)</option>
+                <option value="REST_API">External WMS Schedule REST API (http/https JSON)</option>
+                <option value="SQL_URI">External Enterprise SQL Database URI (PostgreSQL / MySQL)</option>
+              </select>
+            </div>
+
+            <div class="form-row field">
+              <label for="link-schedule_connection">Schedule DB / WMS Connection Link</label>
+              <!-- MANDATORY: Place format hints above the input so autocomplete popovers don't cover them during editing -->
+              <span id="hint-schedule_connection" class="hint">Format: sqlite:///data/schedule_db.sqlite, http://..., or postgresql://host:5432/wms</span>
+              <input
+                type="text"
+                id="link-schedule_connection"
+                name="connection_link"
+                required
+                pattern="^(sqlite:///|http://|https://|postgresql://|postgres://|mysql://|mssql://|data/).+"
+                aria-describedby="hint-schedule_connection"
+                aria-errormessage="err-schedule_connection"
+              />
+              <div id="err-schedule_connection" class="error-msg">
+                <span aria-hidden="true">&#10060;</span> Enter a valid URI starting with <code>sqlite:///</code>, <code>http(s)://</code>, or <code>postgresql://</code>.
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-row">
+                <label for="table-schedule_connection">Tables / Resource Path</label>
+                <input type="text" id="table-schedule_connection" value="schedule_records, docks" />
+              </div>
+              <div class="form-row">
+                <label for="token-schedule_connection">API Key / DB Auth Token (Optional)</label>
+                <input type="password" id="token-schedule_connection" placeholder="Bearer / API key..." autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="connector-status-box" id="diag-schedule_connection">
+              Connected to local SQLite schedule_db.sqlite.
+            </div>
+
+            <div class="connector-actions">
+              <button type="button" class="btn btn-outline btn-xs" onclick="testConnectionConfig('schedule_connection')">
+                &#9889; Test Link
+              </button>
+              <button type="submit" class="btn btn-primary btn-xs">
+                &#128190; Save &amp; Bind to Agent
+              </button>
+              <button type="button" class="btn btn-approve btn-xs" onclick="syncAgentViaLink('schedule_connection')">
+                &#8635; Pull Schedule Data Now
+              </button>
+            </div>
+          </form>
+
+          <!-- CONNECTOR 3: LIVE ETA & GPS TELEMATICS FEED CONNECTION (ETAFinderAgent) -->
+          <form class="connector-card" id="form-eta_connection" onsubmit="saveConnectionConfig(event, 'eta_connection')">
+            <div class="connector-card-header">
+              <div>
+                <span class="connector-agent-tag">Bound to Agent 03: <code>ETAFinderAgent</code></span>
+                <h3>3. Live GPS &amp; ETA Telematics Stream Link</h3>
+              </div>
+              <span id="status-badge-eta_connection" class="badge badge-ok">CONNECTED</span>
+            </div>
+
+            <div class="preset-links-row">
+              <span class="preset-label">Quick Link Presets:</span>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('eta_connection', 'TELEMATICS_REST')">
+                Live Telematics REST Feed
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('eta_connection', 'INTERNAL_DB')">
+                Internal Truck DB ETA
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="applyConnectorPreset('eta_connection', 'SAMSARA_WEBHOOK')">
+                Samsara / Motive Stream URI
+              </button>
+            </div>
+
+            <div class="form-row">
+              <label for="type-eta_connection">Connector Protocol</label>
+              <select id="type-eta_connection" name="connector_type">
+                <option value="INTERNAL_TRUCK_DB">Internal Truck DB Telemetry (Direct SQLite Link)</option>
+                <option value="REST_TELEMATICS_API">External GPS / Telematics REST API Stream (HTTP JSON)</option>
+                <option value="WEBHOOK_FEED">External Telematics Webhook / Event Stream Link</option>
+              </select>
+            </div>
+
+            <div class="form-row field">
+              <label for="link-eta_connection">Live ETA / GPS Stream Link</label>
+              <!-- MANDATORY: Place format hints above the input so autocomplete popovers don't cover them during editing -->
+              <span id="hint-eta_connection" class="hint">Format: http://127.0.0.1:8050/api/external-mock/telematics-eta or sqlite:///...</span>
+              <input
+                type="text"
+                id="link-eta_connection"
+                name="connection_link"
+                required
+                pattern="^(sqlite:///|http://|https://|postgresql://|postgres://|mysql://|mssql://|data/).+"
+                aria-describedby="hint-eta_connection"
+                aria-errormessage="err-eta_connection"
+              />
+              <div id="err-eta_connection" class="error-msg">
+                <span aria-hidden="true">&#10060;</span> Enter a valid Telematics URL (<code>http://</code> or <code>https://</code>) or DB URI.
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-row">
+                <label for="table-eta_connection">Stream / Endpoint Path</label>
+                <input type="text" id="table-eta_connection" value="/api/external-mock/telematics-eta" />
+              </div>
+              <div class="form-row">
+                <label for="token-eta_connection">Telematics API Token (Optional)</label>
+                <input type="password" id="token-eta_connection" value="telematics-demo-token-2026" autocomplete="off" />
+              </div>
+            </div>
+
+            <div class="connector-status-box" id="diag-eta_connection">
+              Linked to Truck DB Telemetry + External Telematics Feed.
+            </div>
+
+            <div class="connector-actions">
+              <button type="button" class="btn btn-outline btn-xs" onclick="testConnectionConfig('eta_connection')">
+                &#9889; Test Link
+              </button>
+              <button type="submit" class="btn btn-primary btn-xs">
+                &#128190; Save &amp; Bind to Agent
+              </button>
+              <button type="button" class="btn btn-approve btn-xs" onclick="syncAgentViaLink('eta_connection')">
+                &#8635; Pull Live ETAs Now
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL 1: CUSTOM ETA OVERRIDE DIALOG (with closedby="any") -->
+  <dialog id="etaModal" closedby="any" aria-labelledby="etaModalTitle">
+    <form method="dialog" id="etaModalForm" onsubmit="submitModalETA(event)">
+      <div class="dialog-header">
+        <h3 id="etaModalTitle">Modify Truck ETA &amp; Telemetry</h3>
+        <button type="button" class="btn-close" onclick="document.getElementById('etaModal').close()" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <input type="hidden" id="modalTruckId" />
+        <div class="form-row">
+          <label for="modalTruckDisplay">Truck &amp; Cargo</label>
+          <input type="text" id="modalTruckDisplay" readonly class="input-readonly" />
+        </div>
+        <div class="form-row">
+          <label for="modalCurrentSlot">Currently Booked Dock / Slot</label>
+          <input type="text" id="modalCurrentSlot" readonly class="input-readonly" />
+        </div>
+        <div class="form-row">
+          <label for="modalNewEta">New Simulated ETA (24-Hour: 00:00 &ndash; 23:55)</label>
+          <input type="time" id="modalNewEta" min="00:00" max="23:55" required />
+        </div>
+        <div class="form-row">
+          <label for="modalNotes">Simulation Reason / Telemetry Note</label>
+          <input type="text" id="modalNotes" placeholder="e.g. Highway traffic delay or early arrival" />
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('etaModal').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save ETA &amp; Recalculate</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toastBanner" class="toast-banner" role="status" aria-live="polite" hidden></div>
+
+  <script src="/static/app.js?v=8"></script>
+</body>
+</html>

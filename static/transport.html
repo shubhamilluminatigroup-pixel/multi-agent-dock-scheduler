@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Transport Portal | Manual ETA Input &amp; Book New Truck Schedule</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css?v=7" />
+  </head>
+  <body class="transport-portal-body">
+    <header class="top-header">
+      <div class="brand-block">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="1" y="3" width="15" height="13" rx="2" />
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+            <circle cx="5.5" cy="18.5" r="2.5" />
+            <circle cx="18.5" cy="18.5" r="2.5" />
+          </svg>
+        </div>
+        <div>
+          <div class="eyebrow">Standalone Carrier &amp; Driver Dispatch Portal</div>
+          <h1>Transport Portal &mdash; Manual ETA &amp; Schedule Booking</h1>
+        </div>
+      </div>
+    </header>
+
+    <main class="transport-clean-container">
+      <div class="transport-two-cards-grid">
+        <!-- CARD 1: 1. Manual ETA Input (Existing Schedule) -->
+        <section class="panel-card transport-card">
+          <div class="panel-header transport-card-header">
+            <div class="transport-card-title-group">
+              <span class="step-pill">01</span>
+              <div>
+                <h2>1. Manual ETA Input (Existing Schedule)</h2>
+                <p class="panel-subtitle">
+                  Select a scheduled fleet truck and submit an updated arrival time (ETA)
+                </p>
+              </div>
+            </div>
+            <span class="badge badge-swap">Edit ETA</span>
+          </div>
+
+          <form
+            id="transportManualEtaForm"
+            class="transport-clean-form"
+            action="/api/modify-eta"
+            method="POST"
+            onsubmit="submitTransportManualETA(event)"
+          >
+            <fieldset class="transport-fieldset">
+              <legend class="transport-legend">Scheduled Vehicle Selection</legend>
+
+              <div class="form-field">
+                <label for="transportTruckSelect">Select Scheduled Truck <span class="req-star" aria-hidden="true">*</span></label>
+                <span id="select-truck-hint" class="field-hint">
+                  Choose an active truck from the schedule to view its current slot and edit ETA
+                </span>
+                <select
+                  id="transportTruckSelect"
+                  name="truck_id"
+                  required
+                  aria-describedby="select-truck-hint"
+                  onchange="onSelectTransportTruck(this.value)"
+                ></select>
+              </div>
+
+              <div class="transport-summary-strip">
+                <div class="summary-kv">
+                  <span class="kv-label">Carrier &amp; Driver</span>
+                  <strong class="kv-val" id="transDispDriver">&mdash;</strong>
+                </div>
+                <div class="summary-kv">
+                  <span class="kv-label">Cargo Specification</span>
+                  <strong class="kv-val" id="transDispCargo">&mdash;</strong>
+                </div>
+                <div class="summary-kv">
+                  <span class="kv-label">Current Booked Slot</span>
+                  <strong class="kv-val" id="transDispSlot">&mdash;</strong>
+                </div>
+                <div class="summary-kv">
+                  <span class="kv-label">Last Reported ETA</span>
+                  <strong class="kv-val" id="transDispCurrentEta">&mdash;</strong>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="transport-fieldset">
+              <legend class="transport-legend">Updated Arrival Telemetry</legend>
+
+              <div class="form-grid-2col">
+                <div class="form-field">
+                  <label for="transportNewEtaInput">Updated Manual ETA (HH:MM) <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="transport-eta-hint" class="field-hint">
+                    24-hour operating window: 00:00 &ndash; 23:55
+                  </span>
+                  <input
+                    type="time"
+                    id="transportNewEtaInput"
+                    name="new_eta"
+                    min="00:00"
+                    max="23:55"
+                    required
+                    aria-describedby="transport-eta-hint transport-eta-err"
+                  />
+                  <span id="transport-eta-err" class="error-msg" role="alert">
+                    Please enter a valid 24-hour ETA between 00:00 and 23:55.
+                  </span>
+                </div>
+
+                <div class="form-field">
+                  <label for="transportDistanceInput">Remaining Distance (km) <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="transport-dist-hint" class="field-hint">
+                    Distance from warehouse gate (0 &ndash; 500 km)
+                  </span>
+                  <input
+                    type="number"
+                    id="transportDistanceInput"
+                    name="distance_km"
+                    min="0"
+                    max="500"
+                    step="0.5"
+                    value="42.5"
+                    required
+                    aria-describedby="transport-dist-hint"
+                  />
+                </div>
+              </div>
+
+              <div class="form-field">
+                <span class="field-label-text">Quick Arrival Offset Shortcuts</span>
+                <span class="field-hint">Click to shift the ETA input above relative to current time</span>
+                <div class="preset-chips-row">
+                  <button type="button" class="preset-chip" onclick="shiftTransportFormEta(-60)">-1h Early</button>
+                  <button type="button" class="preset-chip" onclick="shiftTransportFormEta(-30)">-30m Early</button>
+                  <button type="button" class="preset-chip" onclick="resetTransportFormToBooked()">On-Time (Slot Start)</button>
+                  <button type="button" class="preset-chip" onclick="shiftTransportFormEta(30)">+30m Delay</button>
+                  <button type="button" class="preset-chip" onclick="shiftTransportFormEta(60)">+1h Delay</button>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="transportNotesInput">Delay / Early Arrival Reason <span class="req-star" aria-hidden="true">*</span></label>
+                <span id="transport-notes-hint" class="field-hint">
+                  Reason shared with the Scheduler for slot or dock swap evaluation
+                </span>
+                <input
+                  type="text"
+                  id="transportNotesInput"
+                  name="notes"
+                  placeholder="e.g., Highway I-95 congestion, arriving ~1 hr late"
+                  required
+                  aria-describedby="transport-notes-hint"
+                />
+                <div class="preset-chips-row">
+                  <button type="button" class="preset-chip" onclick="applyTransportReasonPreset('Highway congestion / traffic delay')">
+                    Highway Traffic
+                  </button>
+                  <button type="button" class="preset-chip" onclick="applyTransportReasonPreset('Clear highway corridor - arriving early')">
+                    Clear Route (Early)
+                  </button>
+                  <button type="button" class="preset-chip" onclick="applyTransportReasonPreset('Reefer temp check & weighbridge queue')">
+                    Weighbridge Queue
+                  </button>
+                </div>
+              </div>
+            </fieldset>
+
+            <div class="transport-ResultBanner" id="transportSubmissionFeedback" aria-live="polite">
+              Select a scheduled truck above and submit its updated arrival ETA.
+            </div>
+
+            <div class="transport-form-actions">
+              <button type="submit" id="btnSubmitEta" class="btn btn-primary btn-form-submit">
+                Submit Manual ETA Update
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- CARD 2: 2. Book New Truck Schedule / Appointment -->
+        <section class="panel-card transport-card">
+          <div class="panel-header transport-card-header">
+            <div class="transport-card-title-group">
+              <span class="step-pill step-pill-green">02</span>
+              <div>
+                <h2>2. Book New Truck Schedule / Appointment</h2>
+                <p class="panel-subtitle">
+                  Register a new inbound truck and book a dock slot based on expected arrival time (ETA)
+                </p>
+              </div>
+            </div>
+            <span class="badge badge-new">New Booking</span>
+          </div>
+
+          <form
+            id="transportNewBookingForm"
+            class="transport-clean-form"
+            action="/api/add-truck"
+            method="POST"
+            onsubmit="submitNewTransportBooking(event)"
+          >
+            <fieldset class="transport-fieldset">
+              <legend class="transport-legend">Vehicle &amp; Carrier Details</legend>
+
+              <div class="form-grid-2col">
+                <div class="form-field">
+                  <label for="bookTruckId">Truck ID <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="book-id-hint" class="field-hint">Format: TRK-XXX (e.g., TRK-109)</span>
+                  <input
+                    type="text"
+                    id="bookTruckId"
+                    name="truck_id"
+                    value="TRK-109"
+                    pattern="TRK-[0-9]{3,4}"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    required
+                    aria-describedby="book-id-hint book-id-err"
+                  />
+                  <span id="book-id-err" class="error-msg" role="alert">
+                    Truck ID must match format TRK-XXX (e.g., TRK-109).
+                  </span>
+                </div>
+
+                <div class="form-field">
+                  <label for="bookCarrierName">Transport / Carrier Company <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="book-carrier-hint" class="field-hint">Carrier fleet operator name</span>
+                  <input
+                    type="text"
+                    id="bookCarrierName"
+                    name="carrier_name"
+                    value="GlacierExpress"
+                    autocomplete="organization"
+                    required
+                    aria-describedby="book-carrier-hint"
+                  />
+                </div>
+              </div>
+
+              <div class="form-grid-2col">
+                <div class="form-field">
+                  <label for="bookDriverName">Driver Name <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="book-driver-hint" class="field-hint">Assigned commercial driver</span>
+                  <input
+                    type="text"
+                    id="bookDriverName"
+                    name="driver_name"
+                    value="M. Verma"
+                    autocomplete="name"
+                    required
+                    aria-describedby="book-driver-hint"
+                  />
+                </div>
+
+                <div class="form-field">
+                  <label for="bookWeightTons">Gross Cargo Weight (Tons) <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="book-weight-hint" class="field-hint">Allowed range: 1.0 &ndash; 25.0 Tons</span>
+                  <input
+                    type="number"
+                    id="bookWeightTons"
+                    name="weight_tons"
+                    min="1"
+                    max="25"
+                    step="0.5"
+                    value="16.5"
+                    required
+                    aria-describedby="book-weight-hint"
+                  />
+                </div>
+              </div>
+
+              <div class="form-field">
+                <span class="field-label-text" id="cargo-radio-label">Cargo Requirement <span class="req-star" aria-hidden="true">*</span></span>
+                <span class="field-hint">Determines DOCK-A (Reefer + Dry) vs DOCK-B (Dry Van) compatibility</span>
+                <div class="radio-card-group" role="radiogroup" aria-labelledby="cargo-radio-label">
+                  <label class="radio-card-option" for="cargoRefrig">
+                    <input
+                      type="radio"
+                      id="cargoRefrig"
+                      name="cargo_type"
+                      value="REFRIGERATED"
+                      checked
+                    />
+                    <span>
+                      <strong>REFRIGERATED</strong>
+                      <small>Cold-Chain Reefer (Dock A)</small>
+                    </span>
+                  </label>
+                  <label class="radio-card-option" for="cargoDry">
+                    <input
+                      type="radio"
+                      id="cargoDry"
+                      name="cargo_type"
+                      value="DRY_VAN"
+                    />
+                    <span>
+                      <strong>DRY_VAN</strong>
+                      <small>Standard Freight (Dock A or B)</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="transport-fieldset">
+              <legend class="transport-legend">Requested Arrival &amp; Appointment Details</legend>
+
+              <div class="form-grid-2col">
+                <div class="form-field">
+                  <label for="bookTruckEta">Requested Arrival ETA (HH:MM) <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="book-eta-hint" class="field-hint">24-hour window: 00:00 &ndash; 23:55</span>
+                  <input
+                    type="time"
+                    id="bookTruckEta"
+                    name="current_eta"
+                    value="12:10"
+                    min="00:00"
+                    max="23:55"
+                    required
+                    aria-describedby="book-eta-hint book-eta-err"
+                  />
+                  <span id="book-eta-err" class="error-msg" role="alert">
+                    Enter an arrival ETA between 00:00 and 23:55.
+                  </span>
+                </div>
+
+                <div class="form-field">
+                  <label for="bookDistanceKm">Inbound Distance (km) <span class="req-star" aria-hidden="true">*</span></label>
+                  <span id="book-dist-hint" class="field-hint">Current distance from terminal (1 &ndash; 500 km)</span>
+                  <input
+                    type="number"
+                    id="bookDistanceKm"
+                    name="distance_km"
+                    min="1"
+                    max="500"
+                    step="0.5"
+                    value="38.0"
+                    required
+                    aria-describedby="book-dist-hint"
+                  />
+                </div>
+              </div>
+
+              <div class="form-field">
+                <span class="field-label-text" id="duration-radio-label">Appointment Duration (30, 45, or 60 min) <span class="req-star" aria-hidden="true">*</span></span>
+                <span class="field-hint">Select dock appointment duration to reserve on the 24-hour Gantt timeline</span>
+                <div class="radio-card-group" style="grid-template-columns: repeat(3, minmax(0, 1fr));" role="radiogroup" aria-labelledby="duration-radio-label">
+                  <label class="radio-card-option" for="dur30">
+                    <input
+                      type="radio"
+                      id="dur30"
+                      name="duration_mins"
+                      value="30"
+                    />
+                    <span>
+                      <strong>30 min</strong>
+                      <small>Express Turnaround</small>
+                    </span>
+                  </label>
+                  <label class="radio-card-option" for="dur45">
+                    <input
+                      type="radio"
+                      id="dur45"
+                      name="duration_mins"
+                      value="45"
+                      checked
+                    />
+                    <span>
+                      <strong>45 min</strong>
+                      <small>Standard Unload</small>
+                    </span>
+                  </label>
+                  <label class="radio-card-option" for="dur60">
+                    <input
+                      type="radio"
+                      id="dur60"
+                      name="duration_mins"
+                      value="60"
+                    />
+                    <span>
+                      <strong>60 min</strong>
+                      <small>Full Hour Slot</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="bookNotes">Booking Remarks / Cargo Notes <span class="req-star" aria-hidden="true">*</span></label>
+                <span id="book-notes-hint" class="field-hint">Included with the appointment request for the Scheduler</span>
+                <input
+                  type="text"
+                  id="bookNotes"
+                  name="notes"
+                  value="New inbound carrier schedule booking via Transport Portal"
+                  required
+                  aria-describedby="book-notes-hint"
+                />
+              </div>
+            </fieldset>
+
+            <div class="transport-ResultBanner" id="transportBookingFeedback" aria-live="polite">
+              Fill out the vehicle &amp; arrival details above to book a new truck schedule.
+            </div>
+
+            <div class="transport-form-actions">
+              <button type="submit" id="btnSubmitSchedule" class="btn btn-primary btn-form-submit">
+                Book New Truck Schedule
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+
+    <div id="toastBanner" class="toast-banner" role="status" aria-live="polite" hidden></div>
+
+    <script src="/static/transport.js?v=5"></script>
+  </body>
+</html>
