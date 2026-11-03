@@ -1,0 +1,225 @@
+================================================================================
+AUTONOMOUS MULTI-AGENT ETA DOCK & SLOT SCHEDULER
+COMPLETE VIDEO EXPLAINER & LIVE PRODUCT DEMO PRESENTER SCRIPT
+================================================================================
+Repository : https://github.com/shubhamilluminatigroup-pixel/multi-agent-dock-scheduler
+Estimated Speaking Time : ~4 Minutes 30 Seconds (11 Sections)
+================================================================================
+
+
+--------------------------------------------------------------------------------
+SECTION 01: INTRODUCTION & TITLE (00:00 - 00:20)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Show Main AI Control Tower Dashboard (http://127.0.0.1:8050/)
+              Highlight KPI cards at the top and the 5-Agent Pipeline cards.
+
+[SPOKEN SCRIPT]:
+"Hello everyone, and welcome to the Autonomous Multi-Agent ETA Dock and Slot
+Scheduler. Today, I'm going to walk you through how our AI Control Tower
+transforms warehouse dock scheduling from reactive manual firefighting into
+proactive, autonomous conflict resolution—connecting live fleet telematics,
+warehouse schedules, and external carrier portals in real time."
+
+
+--------------------------------------------------------------------------------
+SECTION 02: PROBLEM STATEMENT — WHY STATIC DOCK SCHEDULES FAIL (00:20 - 00:45)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Point to the red conflict badges ("Live ETA Conflicts") and the
+              red colliding arrival windows on the 24-hour Gantt timeline.
+
+[SPOKEN SCRIPT]:
+"Let's start with the problem statement. In traditional distribution centers,
+dock appointments are booked days in advance as static time slots. However, in
+the real world, trucks hit highway traffic, get held up at weigh stations,
+arrive hours early, or show up unbooked without a dock assignment.
+
+When a delayed truck's actual arrival window—from its live ETA through its
+30, 45, or 60-minute unloading duration—overlaps with the next scheduled truck
+on the same dock, it triggers a domino effect: severe dock bay collisions,
+long yard queues, expensive carrier detention fees, cold-chain spoilage risks,
+and hours of manual phone calls and spreadsheet rework for warehouse planners."
+
+
+--------------------------------------------------------------------------------
+SECTION 03: HOW WE SOLVE IT — 5-AGENT PIPELINE & ARCHITECTURE (00:45 - 01:20)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Hover across the 5 Autonomous Agent Pipeline cards (01 through 05)
+              above the Gantt chart.
+
+[SPOKEN SCRIPT]:
+"Here is how we solve it. Instead of relying on static rules or manual
+rescheduling, we built a decoupled four-tier architecture powered by five
+specialized autonomous agents working in a continuous Sense, Reason, Act,
+Decide, and Learn pipeline:
+
+- First, Agent 01, the Truck Data Agent, connects to the Fleet TMS database to
+  load incoming truck manifests, cargo requirements—like Reefer, Dry Van, or
+  Flatbed—and variable appointment durations of 30, 45, or 60 minutes.
+- Second, Agent 02, the Schedule Data Agent, reads the 24-hour slot occupancy
+  and physical bay equipment capabilities across Dock A and Dock B from the
+  Warehouse WMS database.
+- Third, Agent 03, the ETA Finder Agent, ingests live GPS telematics, calculates
+  exact arrival variances, and triggers our Overlapping ETA Red Indicator
+  whenever two trucks' real-world arrival windows collide on the same dock.
+- Fourth, Agent 04, the Slot Checking Agent, acts as our multi-constraint
+  optimization engine—evaluating Pairwise Slot Swaps, Cross-Dock Swaps, Time
+  Shifts, and New Slot Bookings.
+- And fifth, Agent 05, the Execution and Communication Agent, keeps a human
+  supervisor in the loop and atomically commits approved changes across both
+  SQLite databases while dispatching instant alerts to drivers and the Master
+  Scheduler."
+
+
+--------------------------------------------------------------------------------
+SECTION 04: PRODUCT DEMO PART 1 — 24-HOUR GANTT, FROZEN HEADERS & RED OVERLAPS
+            (01:20 - 01:48)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Scroll horizontally across the 24-Hour Gantt chart (00:00 to 24:00)
+              and click the quick-jump time buttons (e.g., 06:00-18:00).
+
+[SPOKEN SCRIPT]:
+"Now let's jump into the live product demo. Looking at our 24-hour scrollable
+Gantt chart, notice that as we scroll horizontally across all 24 hours of the
+day, the left track column remains completely frozen. This lets schedulers
+effortlessly compare Track 1—the Existing Schedule on top—against Track 2—the
+AI-Proposed Schedule below—for both Dock 1 and Dock 2.
+
+Every appointment bar scales proportionally to its exact 30, 45, or 60-minute
+duration. And whenever two trucks' live arrival windows overlap on the same
+dock, the Gantt immediately highlights those bars with a pulsing red outline
+and an 'OVERLAPPING ETA' badge, with uniform red diamond pins marking each
+truck's exact predicted arrival time."
+
+
+--------------------------------------------------------------------------------
+SECTION 05: PRODUCT DEMO PART 2 — SCENARIO 1: PAIRWISE SLOT SWAP (SLOT_SWAP)
+            (01:48 - 02:20)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Click the "1. Slot Swap (Same Dock)" preset scenario button in the
+              top toolbar. Point to TRK-101 and TRK-103 on Dock A (Dock 1).
+
+[SPOKEN SCRIPT]:
+"Let's trigger Scenario 1: a Pairwise Slot Swap on the same dock.
+On Dock A, Truck 101 has a 60-minute appointment booked from 08:00 to 09:00 AM,
+and Truck 103 has a 30-minute appointment booked from 10:00 to 10:30 AM.
+
+Suddenly, live GPS telemetry reports that Truck 101 is delayed by two hours on
+the highway with a 10:05 AM ETA, while Truck 103 is running two hours early
+with an 08:05 AM ETA. Without intervention, Dock A would sit completely idle
+at 08:00 AM while Truck 103 waits in the yard for two hours.
+
+Agent 04 detects this complementary variance and automatically proposes a
+mutual Pairwise Slot Swap on Dock A: Truck 103 moves into the 08:00 to 08:30 AM
+slot to unload immediately, and Truck 101 takes the 10:00 to 11:00 AM slot—
+eliminating both bay idle time and carrier detention."
+
+
+--------------------------------------------------------------------------------
+SECTION 06: PRODUCT DEMO PART 3 — SCENARIO 2: CROSS-DOCK SWAP (DOCK_SWAP)
+            (02:20 - 02:45)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Click the "2. Dock Swap (Dock A <-> B)" preset scenario button.
+              Point to TRK-102 and TRK-104 moving from Dock 1 to Dock 2.
+
+[SPOKEN SCRIPT]:
+"Next, let's click Scenario 2: Cross-Dock Swap between Dock A and Dock B.
+Here, Truck 102 and Truck 104 are both delayed on Dock A into the 11:00 AM and
+12:00 PM hours, which are already occupied on Dock A—creating red overlapping
+ETA collisions.
+
+Instead of pushing those trucks hours later into the afternoon, Agent 04 checks
+bay availability and cargo compatibility across the entire facility. It sees
+that Dock B has open slots at 11:00 AM and 12:00 PM that support Dry Van and
+Flatbed equipment, and dynamically proposes Cross-Dock Swaps—re-routing both
+trucks from congested Dock A onto open 45-minute bays on Dock B."
+
+
+--------------------------------------------------------------------------------
+SECTION 07: PRODUCT DEMO PART 4 — INTERACTIVE WHAT-IF ETA OVERRIDE & FLEET TABLE
+            (02:45 - 03:08)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Click any truck bar on the Gantt chart to open the 24-Hour ETA
+              Override Modal. Close modal and scroll to Fleet & Audit tab.
+
+[SPOKEN SCRIPT]:
+"What if a dispatcher gets a phone call and wants to run a live what-if
+simulation? You can click directly on any truck bar in the Gantt chart to open
+our interactive 24-hour ETA Override Modal, type in a new arrival time, and
+watch the five agents recompute overlaps and slot recommendations in
+milliseconds.
+
+Notice also that every proposed bar on the Gantt features clean inline Approve
+and Reject buttons positioned right beside the truck label so they never cover
+the truck ID, backed by a full Fleet Operations and Audit table below."
+
+
+--------------------------------------------------------------------------------
+SECTION 08: PRODUCT DEMO PART 5 — PLUGGABLE DB & ENTERPRISE SYSTEM CONNECTORS
+            (03:08 - 03:32)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Switch to the "DB & External Connections" tab. Click "Test Link"
+              or "Sync Agent via Link" on one of the 3 connector cards.
+
+[SPOKEN SCRIPT]:
+"To make deployment effortless in real enterprise environments, our Database
+and System Connections Hub lets you configure live data links for each agent:
+- Link 1 connects Agent 01 to your Truck Database or Fleet TMS.
+- Link 2 connects Agent 02 to your Warehouse Schedule Database or WMS.
+- Link 3 connects Agent 03 to live GPS Telematics REST APIs or webhooks.
+
+With a single click, you can test connection health, inspect latency and row
+counts, and sync live records directly into the agent pipeline."
+
+
+--------------------------------------------------------------------------------
+SECTION 09: PRODUCT DEMO PART 6 — STANDALONE CARRIER TRANSPORT PORTAL (/transport)
+            (03:32 - 03:55)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Open http://127.0.0.1:8050/transport in a browser tab. Point to
+              Card 1 (Manual ETA Input) and Card 2 (Book New Truck Schedule).
+
+[SPOKEN SCRIPT]:
+"For external carriers, dispatchers, and truck drivers, we also provide a
+dedicated, role-separated Transport Portal at slash transport. To maintain
+strict operational security, external carriers never see internal warehouse
+controls. Instead, they get two simple self-service workflows:
+- First, Manual ETA Input, where a driver can select their scheduled truck and
+  submit a live 24-hour arrival time update.
+- Second, Book New Truck Schedule, where a carrier can register a new truck and
+  request a 30, 45, or 60-minute dock appointment.
+Every submission automatically syncs back to the main Control Tower."
+
+
+--------------------------------------------------------------------------------
+SECTION 10: PRODUCT DEMO PART 7 — HUMAN-IN-THE-LOOP APPROVAL & COMMITTED STATE
+            (03:55 - 04:15)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Return to the Main Control Tower (http://127.0.0.1:8050/) and
+              click the green "Approve All" button.
+
+[SPOKEN SCRIPT]:
+"Back on the main Control Tower, once the warehouse supervisor reviews the AI
+recommendations and clicks Approve All, Agent 05 executes an atomic transaction
+across both the Schedule and Truck databases. All approved Slot Swaps,
+Cross-Dock Swaps, Time Shifts, and New Bookings turn solid blue as committed
+schedules, Live ETA Conflicts drop to zero, and automated dispatch notifications
+are logged for the Master Scheduler and every affected driver."
+
+
+--------------------------------------------------------------------------------
+SECTION 11: BUSINESS BENEFITS & RETURN ON INVESTMENT (04:15 - 04:35)
+--------------------------------------------------------------------------------
+[SCREEN CUE]: Show the clean, 0-conflict Gantt schedule and final KPI metrics.
+
+[SPOKEN SCRIPT]:
+"To wrap up, the Autonomous Multi-Agent ETA Dock and Slot Scheduler delivers
+measurable business impact:
+- Up to 80 percent faster schedule conflict resolution,
+- Zero dock bay collisions through intelligent Pairwise Slot Swaps and
+  Cross-Dock load balancing,
+- Significant reductions in carrier detention and demurrage charges,
+- Strict cold-chain SLA protection for refrigerated cargo, and
+- A 100 percent auditable decision trail with human-in-the-loop governance.
+
+Thank you for watching!"
+================================================================================

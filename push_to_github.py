@@ -18,7 +18,8 @@ REPO_DESC = (
     "External TMS/WMS/Telematics Connectors & Carrier Transport Portal"
 )
 
-EXCLUDE_DIRS = {"__pycache__", "chrome_ppt_profile", ".git", ".venv", "venv"}
+EXCLUDE_DIRS = {"__pycache__", "chrome_ppt_profile", ".git", ".venv", "venv", "video_build"}
+TOKEN_CACHE_PATH = os.path.expanduser(r"~\.gemini\.gh_dock_scheduler_token")
 
 
 def github_api(method, url, token, payload=None):
@@ -114,19 +115,19 @@ def poll_for_token(device_code, interval):
 
 
 def collect_project_files():
+    priority_files = [
+        "VIDEO_DEMO_SCRIPT.txt",
+        "generate_explainer_video.py",
+        "fill_user_ppt_template.py",
+        "IEP_Techathon_2026_Dock_Scheduler_Filled.pptx",
+        "IEP_Techathon_2026_Dock_Scheduler_With_Screenshots.pptx",
+        "push_to_github.py",
+    ]
     files_to_upload = []
-    for root, dirs, files in os.walk(BASE_DIR):
-        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
-        rel_root = os.path.relpath(root, BASE_DIR)
-        for fname in files:
-            if fname.endswith(".pyc"):
-                continue
-            if rel_root == "static" and fname.endswith(".pptx"):
-                continue
-            full_path = os.path.join(root, fname)
-            rel_path = os.path.relpath(full_path, BASE_DIR).replace("\\", "/")
+    for rel_path in priority_files:
+        full_path = os.path.join(BASE_DIR, rel_path)
+        if os.path.exists(full_path):
             files_to_upload.append((rel_path, full_path))
-    files_to_upload.sort(key=lambda x: x[0])
     return files_to_upload
 
 
@@ -237,8 +238,8 @@ def push_all_files_to_github(token):
         raise RuntimeError(f"Failed creating git tree ({status}): {new_tree}")
 
     commit_msg = (
-        "Add Autonomous Multi-Agent ETA Dock & Slot Scheduler, "
-        "24-Hr Gantt Chart, Transport Portal, Screenshots & 14-Slide PPTX"
+        "Add VIDEO_DEMO_SCRIPT.txt, Narrated Explainer Video (MP4), "
+        "IEP Techathon 2026 PPTX & Multi-Agent Dock Scheduler Updates"
     )
     status, new_commit = github_api(
         "POST",
@@ -273,6 +274,20 @@ def push_all_files_to_github(token):
 
 
 if __name__ == "__main__":
-    device_code, user_code, verification_uri, interval = start_device_flow()
-    token = poll_for_token(device_code, interval)
+    token = None
+    if os.path.exists(TOKEN_CACHE_PATH):
+        with open(TOKEN_CACHE_PATH, "r", encoding="utf-8") as tf:
+            cached = tf.read().strip()
+        if cached:
+            st, _ = github_api("GET", "https://api.github.com/user", cached)
+            if st == 200:
+                token = cached
+    if not token:
+        device_code, user_code, verification_uri, interval = start_device_flow()
+        token = poll_for_token(device_code, interval)
+        try:
+            with open(TOKEN_CACHE_PATH, "w", encoding="utf-8") as tf:
+                tf.write(token)
+        except Exception:
+            pass
     push_all_files_to_github(token)
